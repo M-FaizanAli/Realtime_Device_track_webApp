@@ -1,42 +1,51 @@
 const socket = io();
 
+// Get user location and send to server
 if (navigator.geolocation) {
-  navigator.geolocation.watchPosition(
-    (position) => {
-      const { latitude, longitude } = position.coords;
-      socket.emit("send-location", { latitude, longitude });
-    },
-    (error) => {
-      console.log(error);
-    },
-    {
-        enableHighAccuracy: true,
-        timeout: 5000,
-        maximumAge: 0,
-    }
-  );
+    navigator.geolocation.watchPosition(
+        (position) => {
+            const { latitude, longitude } = position.coords;
+            socket.emit("send-location", { latitude, longitude });
+        },
+        (error) => {
+            console.log("Geolocation error:", error);
+        },
+        {
+            enableHighAccuracy: true,
+            timeout: 5000,
+            maximumAge: 0,
+        }
+    );
 }
+
+// Initialize Leaflet map
 const map = L.map("map").setView([0, 0], 16);
 
 L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    attribution: "faizan"
-}).addTo(map)
+    attribution: "Map data © OpenStreetMap contributors"
+}).addTo(map);
 
 const markers = {};
 
-socket.on("receive-location", (data)=>{
-    const {id, latitude, longitude} = data;
+// Handle location updates
+socket.on("receive-location", (data) => {
+    const { id, latitude, longitude } = data;
     map.setView([latitude, longitude]);
-    if(markers[id]){
+    if (markers[id]) {
+        // Update marker position
         markers[id].setLatLng([latitude, longitude]);
-    }else{
-        markers[id] = L.marker([latitude, longitude]).addTo(map);
+    } else {
+        // Add a new marker for this user
+        markers[id] = L.marker([latitude, longitude])
+            .addTo(map)
+            .bindPopup(`User: ${id}`);
     }
 });
 
-socket.on("user-disconnected", function(){
-  if(markers[id]){
-    map.removeLayer(markers[id]);
-    delete markers[id];
-  }
+// Remove marker on user disconnect
+socket.on("user-disconnected", (id) => {
+    if (markers[id]) {
+        map.removeLayer(markers[id]);
+        delete markers[id];
+    }
 });
